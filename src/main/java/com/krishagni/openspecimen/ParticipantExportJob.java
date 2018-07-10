@@ -35,7 +35,7 @@ public class ParticipantExportJob implements ScheduledTask{
 			exportParticipants();
 			logger.error("Successfully created Participants.csv file with valid data");
 		} catch (Exception e) {
-			logger.error("Error operating inside class com.krishagni.catissueplus.core.biospecimen.services.impl.ParticipantExportJob");
+			logger.error("Error operating inside class com.krishagni.catissueplus.core.biospecimen.services.impl.ParticipantExportJob");	
 		} 	
 	}
 	
@@ -78,7 +78,7 @@ public class ParticipantExportJob implements ScheduledTask{
 			return new FileOutputStream(ConfigUtil.getInstance().getDataDir() + File.separator + "Participants_" + timeStamp + ".csv", false);
 		} catch (Exception e) {
 			logger.error("Error occured while creating file");
-			throw new Exception();
+			throw new Exception("Error occured while creating file");
 		}
 	}
 	
