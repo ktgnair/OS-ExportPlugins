@@ -22,25 +22,24 @@ import com.krishagni.catissueplus.core.common.util.ConfigUtil;
 import com.krishagni.catissueplus.core.common.util.CsvFileWriter;
 
 @Configurable
-public class ParticipantExportJob implements ScheduledTask{
+public class Participant implements ScheduledTask{
 	@Autowired
 	private DaoFactory daoFactory;
 	
-	private static final Log logger = LogFactory.getLog(ParticipantExportJob.class);
+	private static final Log logger = LogFactory.getLog(Participant.class);
 	
 	@Override
-	public void doJob(ScheduledJobRun jobRun) throws Exception {
+	public void doJob(ScheduledJobRun jobRun) {
 		try {
-			exportParticipants();
+			export();
 			logger.info("Successfully created Participants.csv file with valid data");
 		} catch (Exception e) {
-			logger.error("Error while running ParticipantExportJob");
-			throw new Exception();
+			logger.error("Error while running Participant", e);
 		} 	
 	}
 	
 	@PlusTransactional
-	private void exportParticipants() throws Exception {
+	private void export() throws Exception {
 		List<Long> cpIds = daoFactory.getCollectionProtocolDao().getAllCpIds();
 		
 		CsvFileWriter csvFileWriter = getCSVWriter(getFile());		
@@ -73,12 +72,7 @@ public class ParticipantExportJob implements ScheduledTask{
 
 	private OutputStream getFile() throws Exception {
 		String timeStamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
-		
-		try {
-			return new FileOutputStream(ConfigUtil.getInstance().getDataDir() + File.separator + "Participants_" + timeStamp + ".csv", false);
-		} catch (Exception e) {
-			throw new Exception("Error occured while creating output CSV file for ParticipantExportJob");
-		}
+		return new FileOutputStream(ConfigUtil.getInstance().getDataDir() + File.separator + "Participants_" + timeStamp + ".csv", false);
 	}
 	
 	private String[] getHeader() {
