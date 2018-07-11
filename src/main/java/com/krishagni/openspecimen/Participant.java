@@ -22,7 +22,7 @@ import com.krishagni.catissueplus.core.common.util.ConfigUtil;
 import com.krishagni.catissueplus.core.common.util.CsvFileWriter;
 
 @Configurable
-public class Participant implements ScheduledTask{
+public class Participant implements ScheduledTask {
 	@Autowired
 	private DaoFactory daoFactory;
 	
