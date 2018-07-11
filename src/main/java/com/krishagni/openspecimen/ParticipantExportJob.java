@@ -2,7 +2,6 @@ package com.krishagni.openspecimen;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -30,12 +29,13 @@ public class ParticipantExportJob implements ScheduledTask{
 	private static final Log logger = LogFactory.getLog(ParticipantExportJob.class);
 	
 	@Override
-	public void doJob(ScheduledJobRun jobRun) throws IOException {
+	public void doJob(ScheduledJobRun jobRun) throws Exception {
 		try {
 			exportParticipants();
-			logger.error("Successfully created Participants.csv file with valid data");
+			logger.info("Successfully created Participants.csv file with valid data");
 		} catch (Exception e) {
-			logger.error("Error operating inside class com.krishagni.catissueplus.core.biospecimen.services.impl.ParticipantExportJob");	
+			logger.error("Error while running ParticipantExportJob");
+			throw new Exception();
 		} 	
 	}
 	
@@ -77,8 +77,7 @@ public class ParticipantExportJob implements ScheduledTask{
 		try {
 			return new FileOutputStream(ConfigUtil.getInstance().getDataDir() + File.separator + "Participants_" + timeStamp + ".csv", false);
 		} catch (Exception e) {
-			logger.error("Error occured while creating file");
-			throw new Exception("Error occured while creating file");
+			throw new Exception("Error occured while creating output CSV file for ParticipantExportJob");
 		}
 	}
 	
