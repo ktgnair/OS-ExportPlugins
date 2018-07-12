@@ -39,13 +39,13 @@ public class DistributionProtocolExport implements ScheduledTask {
 			csvFileWriter.writeNext(getHeader());
 			
 			boolean endOfDistributionProtocol = false;
-    		int startAt = 0, maxRecs = 100;
+    			int startAt = 0, maxRecs = 100;
     		
-    		while (!endOfDistributionProtocol) {
-	      		int exportedRecsCount = exportDistributionProtocol(csvFileWriter, startAt, maxRecs);
-	      		startAt += exportedRecsCount;
-	      		endOfDistributionProtocol = (exportedRecsCount < maxRecs);
-	    	}
+    			while (!endOfDistributionProtocol) {
+	      			int exportedRecsCount = exportDistributionProtocol(csvFileWriter, startAt, maxRecs);
+	      			startAt += exportedRecsCount;
+	      			endOfDistributionProtocol = (exportedRecsCount < maxRecs);
+	    		}
   		} catch (Exception e) {
   			logger.error("Error while running distribution protocol export job", e);
 		} finally {
@@ -76,7 +76,7 @@ public class DistributionProtocolExport implements ScheduledTask {
 				"TBR_INSTITUTE_DESC", 
 				"TBR_DEPT_DESC", 
 				"TBR_REQUESTER_DESC"
-				};
+			};
 	}
 
 	private String[] getRow(DistributionProtocol dp) {
