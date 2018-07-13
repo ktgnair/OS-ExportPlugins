@@ -1,6 +1,7 @@
-package com.krishagni.openspecimen;
+package com.krishagni.openspecimen.msk.ppbc;
 
 import java.io.File;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -28,23 +29,23 @@ public class DistributionProtocolExport implements ScheduledTask {
 	private DaoFactory daoFactory;
 	
 	public void doJob(ScheduledJobRun jobRun) {
-		exportDistributionProtocol();
+		exportDP();
 	}
 	
-	private void exportDistributionProtocol() {
+	private void exportDP() {
 		CsvFileWriter csvFileWriter = null;
 		
 		try {
 			csvFileWriter = getCSVWriter();
 			csvFileWriter.writeNext(getHeader());
 			
-			boolean endOfDistributionProtocol = false;
+			boolean endOfDPs = false;
     			int startAt = 0, maxRecs = 100;
     		
-    			while (!endOfDistributionProtocol) {
-	      			int exportedRecsCount = exportDistributionProtocol(csvFileWriter, startAt, maxRecs);
+    			while (!endOfDPs) {
+	      			int exportedRecsCount = exportDPs(csvFileWriter, startAt, maxRecs);
 	      			startAt += exportedRecsCount;
-	      			endOfDistributionProtocol = (exportedRecsCount < maxRecs);
+	      			endOfDPs = (exportedRecsCount < maxRecs);
 	    		}
   		} catch (Exception e) {
   			logger.error("Error while running distribution protocol export job", e);
@@ -54,19 +55,18 @@ public class DistributionProtocolExport implements ScheduledTask {
 	}
 
 	@PlusTransactional
-	private int exportDistributionProtocol(CsvFileWriter csvFileWriter, int startAt, int maxRecs) {
-		List<DistributionProtocol> distributionProtocols = daoFactory.getDistributionProtocolDao().getDistributionProtocols(
-				new DpListCriteria().startAt(startAt).maxResults(maxRecs)
-				);
-		distributionProtocols.forEach(dp -> csvFileWriter.writeNext(getRow(dp)));
-		return distributionProtocols.size();
+	private int exportDPs(CsvFileWriter csvFileWriter, int startAt, int maxRecs) throws IOException {
+		DpListCriteria listCrit = new DpListCriteria().startAt(startAt).maxResults(maxRecs);
+		List<DistributionProtocol> dPs = daoFactory.getDistributionProtocolDao().getDistributionProtocols(listCrit);
+		dPs.forEach(dp -> csvFileWriter.writeNext(getRow(dp)));
+		csvFileWriter.flush();
+		return dPs.size();
 	}
 
 	private CsvFileWriter getCSVWriter() {
-		String timeStamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
-		return CsvFileWriter.createCsvFileWriter(
-				new File(ConfigUtil.getInstance().getDataDir(), "DistributionProtocol_" + timeStamp + ".csv")
-				);
+		String timestamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+		File outputFile = new File(ConfigUtil.getInstance().getDataDir(), "DistributionProtocol_" + timestamp + ".csv");
+		return CsvFileWriter.createCsvFileWriter(outputFile);
 	}
 
 	private String[] getHeader() {
@@ -76,7 +76,7 @@ public class DistributionProtocolExport implements ScheduledTask {
 				"TBR_INSTITUTE_DESC", 
 				"TBR_DEPT_DESC", 
 				"TBR_REQUESTER_DESC"
-			};
+		};
 	}
 
 	private String[] getRow(DistributionProtocol dp) {
@@ -86,6 +86,6 @@ public class DistributionProtocolExport implements ScheduledTask {
 				dp.getInstitute().getName(), 
 				dp.getDefReceivingSite().getName(), 
 				dp.getPrincipalInvestigator().getFirstName() + " " + dp.getPrincipalInvestigator().getLastName()
-			};
+		};
 	}
 }
