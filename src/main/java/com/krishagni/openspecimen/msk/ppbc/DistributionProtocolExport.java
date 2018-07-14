@@ -34,33 +34,49 @@ public class DistributionProtocolExport implements ScheduledTask {
 	
 	private void exportDP() {
 		CsvFileWriter csvFileWriter = null;
+		DpRequirementExport dprExport = new DpRequirementExport();
 		
 		try {
 			csvFileWriter = getCSVWriter();
 			csvFileWriter.writeNext(getHeader());
 			
 			boolean endOfDPs = false;
-    			int startAt = 0, maxRecs = 100;
-    		
-    			while (!endOfDPs) {
-	      			int exportedRecsCount = exportDPs(csvFileWriter, startAt, maxRecs);
-	      			startAt += exportedRecsCount;
-	      			endOfDPs = (exportedRecsCount < maxRecs);
-	    		}
+			int startAt = 0, maxRecs = 100;
+		    
+			while (!endOfDPs) {
+      			int exportedRecsCount = exportDPs(csvFileWriter, startAt, maxRecs, dprExport);
+      			startAt += exportedRecsCount;
+      			endOfDPs = (exportedRecsCount < maxRecs);
+    		}
   		} catch (Exception e) {
   			logger.error("Error while running distribution protocol export job", e);
 		} finally {
+			dprExport.closeWriter();
 			IOUtils.closeQuietly(csvFileWriter);
 		}
 	}
 
 	@PlusTransactional
-	private int exportDPs(CsvFileWriter csvFileWriter, int startAt, int maxRecs) throws IOException {
+	private int exportDPs(CsvFileWriter csvFileWriter, int startAt, int maxRecs, DpRequirementExport dprExport) throws IOException {
 		DpListCriteria listCrit = new DpListCriteria().startAt(startAt).maxResults(maxRecs);
 		List<DistributionProtocol> dPs = daoFactory.getDistributionProtocolDao().getDistributionProtocols(listCrit);
-		dPs.forEach(dp -> csvFileWriter.writeNext(getRow(dp)));
+
+		for (DistributionProtocol dp : dPs) {
+			writeToCsv(csvFileWriter, dp);
+			exportDpr(dprExport, dp);
+		}
+		
 		csvFileWriter.flush();
+		dprExport.flushCsvWriter();
 		return dPs.size();
+	}
+
+	private void writeToCsv(CsvFileWriter csvFileWriter, DistributionProtocol dp) {
+		csvFileWriter.writeNext(getRow(dp));
+	}
+
+	private void exportDpr(DpRequirementExport dprExport, DistributionProtocol dp) {
+		dprExport.exportDPRequirement(dp);
 	}
 
 	private CsvFileWriter getCSVWriter() {
