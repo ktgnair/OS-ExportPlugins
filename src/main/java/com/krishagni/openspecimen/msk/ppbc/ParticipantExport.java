@@ -1,6 +1,7 @@
-package com.krishagni.openspecimen;
+package com.krishagni.openspecimen.msk.ppbc;
 
 import java.io.File;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -14,6 +15,7 @@ import org.springframework.beans.factory.annotation.Configurable;
 import com.krishagni.catissueplus.core.administrative.domain.ScheduledJobRun;
 import com.krishagni.catissueplus.core.administrative.services.ScheduledTask;
 import com.krishagni.catissueplus.core.biospecimen.domain.CollectionProtocolRegistration;
+import com.krishagni.catissueplus.core.biospecimen.domain.Visit;
 import com.krishagni.catissueplus.core.biospecimen.repository.CprListCriteria;
 import com.krishagni.catissueplus.core.biospecimen.repository.DaoFactory;
 import com.krishagni.catissueplus.core.common.PlusTransactional;
@@ -38,51 +40,70 @@ public class ParticipantExport implements ScheduledTask {
 		try {
 			csvFileWriter = getCSVWriter();
 			csvFileWriter.writeNext(getHeader());
-			List<Long> cpIds = getAllCpIds();
-			
-			for (Long cpId : cpIds) {
-				boolean endOfParticipants = false;
-		    		int startAt = 0, maxRecs = 100;
+				
+			boolean endOfParticipants = false;
+		        int startAt = 0, maxRecs = 100;
 		    		
-		    		while (!endOfParticipants) {
-	    	      			int exportedRecsCount = exportParticipants(csvFileWriter, cpId, startAt, maxRecs);
-	 		      		startAt += exportedRecsCount;
-	 		      		endOfParticipants = (exportedRecsCount < maxRecs);
-	    	    		}
-			}
+	    		while (!endOfParticipants) {
+	      			int exportedRecsCount = exportParticipants(csvFileWriter, startAt, maxRecs);
+	      			startAt += exportedRecsCount;
+	      			endOfParticipants = (exportedRecsCount < maxRecs);
+    	    		}		
   		} catch (Exception e) {
   			logger.error("Error while running participant export job", e);
 		} finally {
 			IOUtils.closeQuietly(csvFileWriter);
 		}
 	}
-	
-	@PlusTransactional
-	private List<Long> getAllCpIds() {
-		return daoFactory.getCollectionProtocolDao().getAllCpIds();
-	}
 
 	@PlusTransactional
-	private int exportParticipants(CsvFileWriter csvFileWriter, Long cpId, int startAt, int maxRecs) {
-		List<CollectionProtocolRegistration> cprs = daoFactory.getCprDao().getCprs(
-				new CprListCriteria().cpId(cpId).startAt(startAt).maxResults(maxRecs)
-				);
-		cprs.forEach(cpr -> csvFileWriter.writeNext(getRow(cpr)));
+	private int exportParticipants(CsvFileWriter csvFileWriter, int startAt, int maxRecs) throws IOException {
+		CprListCriteria cprListCriteria = new CprListCriteria().startAt(startAt).maxResults(maxRecs);
+		List<CollectionProtocolRegistration> cprs = daoFactory.getCprDao().getCprs(cprListCriteria);;
+		
+		cprs.forEach(cpr -> {
+			if (cpr.getVisits().isEmpty()) {
+				csvFileWriter.writeNext(getRow(cpr));
+			} else {
+				cpr.getVisits().forEach(visit -> csvFileWriter.writeNext(getRow(cpr, visit)));
+			}
+		});
+		
+		csvFileWriter.flush();
 		return cprs.size();
+	}
+	
+	private String[] getRow(CollectionProtocolRegistration cpr, Visit visit) {
+		return new String[] {
+				cpr.getParticipant().getEmpi(),
+				visit.getName(),
+				visit.getVisitDate().toString(),
+				visit.getSite().getName(),
+				visit.getClinicalDiagnoses().iterator().next(),
+				visit.getSurgicalPathologyNumber(),
+				visit.getComments()
+		};
+	}
+	
+	private String[] getRow(CollectionProtocolRegistration cpr) {
+		return new String[] {cpr.getParticipant().getEmpi()};
 	}
 
 	private CsvFileWriter getCSVWriter() {
 		String timeStamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
-		return CsvFileWriter.createCsvFileWriter(
-				new File(ConfigUtil.getInstance().getDataDir(), "participants_" + timeStamp + ".csv")
-				);
+		File file =	new File(ConfigUtil.getInstance().getDataDir(), "participants_" + timeStamp + ".csv");
+		return CsvFileWriter.createCsvFileWriter(file);
 	}
 
 	private String[] getHeader() {
-		return new String[] {"firstName", "lastName"};
-	}
-
-	private String[] getRow(CollectionProtocolRegistration cprDetail) {
-		return new String[] {cprDetail.getParticipant().getFirstName(), cprDetail.getParticipant().getLastName()};
+		return new String[] {
+				"TBA_CRDB_MRN", 
+				"TBD_BANK_NUM", 
+				"TBA_PROCUREMENT_DTE", 
+				"TBD_BANK_SUB_CD",
+				"TBA_DISEASE_DESC",
+				"TBA_ACCESSION_NUM",
+				"TBD_BANK_NOTE"
+		};
 	}
 }
