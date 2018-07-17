@@ -47,10 +47,10 @@ public class ParticipantExport implements ScheduledTask {
             int startAt = 0, maxRecs = 100;
 
                 while (!endOfParticipants) {
-                      int exportedRecsCount = exportParticipants(csvFileWriter, startAt, maxRecs);
-                      startAt += exportedRecsCount;
-                      endOfParticipants = (exportedRecsCount < maxRecs);
-                    }        
+                    int exportedRecsCount = exportParticipants(csvFileWriter, startAt, maxRecs);
+                    startAt += exportedRecsCount;
+                    endOfParticipants = (exportedRecsCount < maxRecs);
+                }        
           } catch (Exception e) {
               logger.error("Error while running participant export job", e);
         } finally {
@@ -72,60 +72,61 @@ public class ParticipantExport implements ScheduledTask {
     	props.add(cpr.getParticipant().getEmpi());
     	
     	if (!cpr.getVisits().isEmpty()) {
-    		cpr.getVisits().forEach(visit -> writeVisit(visit, props, csvFileWriter));
+                cpr.getVisits().forEach(visit -> writeVisit(visit, props, csvFileWriter));
     	} else {
-    		csvFileWriter.writeNext(props.toArray(new String[props.size()]));
+                csvFileWriter.writeNext(props.toArray(new String[props.size()]));
     	}
     }
 
     private void writeVisit(Visit visit, List<String> visitProps, CsvFileWriter csvFileWriter) {
-	ArrayList<String> props = populateVisit(visit, visitProps);
-		
-	if (!visit.getSpecimens().isEmpty()) {
-		visit.getSpecimens().forEach(specimen -> writeSpecimen(specimen, props, csvFileWriter));
-	} else {
-		csvFileWriter.writeNext(props.toArray(new String[props.size()]));
-	}
+    	ArrayList<String> props = populateVisit(visit, visitProps);
+	
+    	if (!visit.getOrderedTopLevelSpecimens().isEmpty()) {
+    	        visit.getOrderedTopLevelSpecimens().forEach(specimen -> writeSpecimen(specimen, props, csvFileWriter));
+    	} else {
+       	        csvFileWriter.writeNext(props.toArray(new String[props.size()]));
+    	}
     }
 	
     private void writeSpecimen(Specimen specimen, List<String> specimenProps, CsvFileWriter csvFileWriter) {
-	ArrayList<String> props = populateSpecimen(specimen, specimenProps);
+    	ArrayList<String> props = populateSpecimen(specimen, specimenProps);
 		
-	csvFileWriter.writeNext(props.toArray(new String[props.size()]));
+    	csvFileWriter.writeNext(props.toArray(new String[props.size()]));
     }
 	
     private ArrayList<String> populateVisit(Visit visit, List<String> visitProps) {
-	ArrayList<String> props = new ArrayList<String>(visitProps);
+    	ArrayList<String> props = new ArrayList<String>(visitProps);
 		
-	props.add(visit.getName());
-	props.add(visit.getVisitDate().toString()); 
-	props.add(visit.getSite().getName()); 
-	props.add(visit.getClinicalDiagnoses().iterator().next());
-	props.add(visit.getSurgicalPathologyNumber()); 
-	props.add(visit.getComments());
+    	props.add(visit.getName());
+    	props.add(visit.getVisitDate().toString()); 
+    	props.add(visit.getSite().getName()); 
+    	props.add(visit.getClinicalDiagnoses().iterator().next());
+    	props.add(visit.getSurgicalPathologyNumber()); 
+    	props.add(visit.getComments());
 		
-	return props;
+    	return props;
     }
 
     private ArrayList<String> populateSpecimen(Specimen specimen, List<String> specimenProps) {
     	ArrayList<String> props = new ArrayList<String>(specimenProps);
     	
+    	props.add(specimen.getLabel());
     	props.add(specimen.getSpecimenType());
-	props.add(specimen.getTissueSite());
-	props.add(specimen.getTissueSide());
-	props.add(specimen.getPathologicalStatus());
-	props.add(specimen.getInitialQuantity().toString());
-	props.add(specimen.getCreatedOn().toString());
-	props.add(specimen.getComment());
-	props.add(specimen.getCollRecvDetails().getCollTime().toString());
-	props.add(specimen.getCollRecvDetails().getRecvTime().toString());
+    	props.add(specimen.getTissueSite());
+    	props.add(specimen.getTissueSide());
+    	props.add(specimen.getPathologicalStatus());
+    	props.add(specimen.getInitialQuantity().toString());
+    	props.add(specimen.getCreatedOn().toString());
+    	props.add(specimen.getComment());
+    	props.add(specimen.getCollRecvDetails().getCollTime().toString());
+    	props.add(specimen.getCollRecvDetails().getRecvTime().toString());
 		
     	return props;
     }
 
     private CsvFileWriter getCSVWriter() {
         String timeStamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
-        File file =    new File(ConfigUtil.getInstance().getDataDir(), "participants_" + timeStamp + ".csv");
+        File file = new File(ConfigUtil.getInstance().getDataDir(), "participants_" + timeStamp + ".csv");
         return CsvFileWriter.createCsvFileWriter(file);
     }
 
@@ -138,6 +139,7 @@ public class ParticipantExport implements ScheduledTask {
                 "TBA_DISEASE_DESC",
                 "TBA_ACCESSION_NUM",
                 "TBD_BANK_NOTE",
+                "PARENT_SPECIMEN_LABEL",
                 "TBD_SPECIMEN_TYPE_DESC",   
                 "TBA_SITE_DESC",
                 "TBA_SITE_SIDE_DESC",
@@ -146,7 +148,7 @@ public class ParticipantExport implements ScheduledTask {
                 "TBD_SAMPLE_PROCESS_DT",        
                 "TBA_SITE_TEXT",        
                 "TBA_RESECT_DT",      
-                "TBA_BIOBANK_RECEIPT_DT"      
+                "TBA_BIOBANK_RECEIPT_DT"
         };
     }
 }
