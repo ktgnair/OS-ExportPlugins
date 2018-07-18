@@ -6,6 +6,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.commons.io.IOUtils;
@@ -15,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Configurable;
 
 import com.krishagni.catissueplus.core.administrative.domain.DistributionProtocol;
+import com.krishagni.catissueplus.core.administrative.domain.DpRequirement;
 import com.krishagni.catissueplus.core.administrative.domain.ScheduledJobRun;
 import com.krishagni.catissueplus.core.administrative.repository.DpListCriteria;
 import com.krishagni.catissueplus.core.administrative.services.ScheduledTask;
@@ -32,63 +34,65 @@ public class DistributionProtocolExport implements ScheduledTask {
 	private DaoFactory daoFactory;
 	
 	public void doJob(ScheduledJobRun jobRun) {
-		exportDP();
+		export();
 	}
 	
-	private void exportDP() {
-		CsvFileWriter csvFileWriter = null;
-		DpRequirementExport dpRExport = new DpRequirementExport();
+	private void export() {
+		CsvFileWriter dpFileWriter = null, dPRFileWriter = null;
 		
 		try {
-			csvFileWriter = getCSVWriter();
-			csvFileWriter.writeNext(getHeader());
+			dpFileWriter = getDpCSVWriter();
+			dPRFileWriter = getDpRCSVWriter();
+			dpFileWriter.writeNext(getDpHeader());
+			dPRFileWriter.writeNext(getDpRHeader());
 			
 			boolean endOfDPs = false;
 			int startAt = 0, maxRecs = 100;
 		    
 			while (!endOfDPs) {
-      			int exportedRecsCount = exportDPs(csvFileWriter, startAt, maxRecs, dpRExport);
+      			int exportedRecsCount = exportDpData(dpFileWriter, dPRFileWriter, startAt, maxRecs);
       			startAt += exportedRecsCount;
       			endOfDPs = (exportedRecsCount < maxRecs);
     		}
   		} catch (Exception e) {
   			logger.error("Error while running distribution protocol export job", e);
 		} finally {
-			dpRExport.closeWriter();
-			IOUtils.closeQuietly(csvFileWriter);
+			IOUtils.closeQuietly(dPRFileWriter);
+			IOUtils.closeQuietly(dpFileWriter);
 		}
 	}
-
+	
 	@PlusTransactional
-	private int exportDPs(CsvFileWriter csvFileWriter, int startAt, int maxRecs, DpRequirementExport dprExport) throws IOException {
+	private int exportDpData(CsvFileWriter dpFileWriter, CsvFileWriter dPRFileWriter, int startAt, int maxRecs) throws IOException {
 		DpListCriteria listCrit = new DpListCriteria().startAt(startAt).maxResults(maxRecs);
 		List<DistributionProtocol> dPs = daoFactory.getDistributionProtocolDao().getDistributionProtocols(listCrit);
-
-		for (DistributionProtocol dp : dPs) {
-			writeToCsv(csvFileWriter, dp);
-			exportDpr(dprExport, dp);
-		}
 		
-		csvFileWriter.flush();
-		dprExport.flushCsvWriter();
+		exportDp(dpFileWriter, dPs);
+		dPs.forEach(dp -> exportDpr(dPRFileWriter, dp.getRequirements()));
+		
+		dpFileWriter.flush();
+		dPRFileWriter.flush();
+
 		return dPs.size();
 	}
+	
+	///////////////////////
+	//
+	// DP export
+	//
+	///////////////////////
 
-	private void writeToCsv(CsvFileWriter csvFileWriter, DistributionProtocol dp) {
-		csvFileWriter.writeNext(getRow(dp));
+	private void exportDp(CsvFileWriter dpFileWriter, List<DistributionProtocol> dPs) {
+		dPs.forEach(dp -> dpFileWriter.writeNext(getDpRow(dp)));
 	}
 
-	private void exportDpr(DpRequirementExport dprExport, DistributionProtocol dp) {
-		dprExport.exportDPRequirement(dp);
-	}
-
-	private CsvFileWriter getCSVWriter() {
+	private CsvFileWriter getDpCSVWriter() {
 		String timestamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
 		File outputFile = new File(ConfigUtil.getInstance().getDataDir(), "DistributionProtocol_" + timestamp + ".csv");
 		return CsvFileWriter.createCsvFileWriter(outputFile);
 	}
 
-	private String[] getHeader() {
+	private String[] getDpHeader() {
 		return new String[]{
 			"TBR_REQUEST_TITLE",			// Title
 			"TBR_SOURCE_REQUEST",			// Shorttitle
@@ -117,7 +121,7 @@ public class DistributionProtocolExport implements ScheduledTask {
 		};
 	}
 
-	private String[] getRow(DistributionProtocol dp) {
+	private String[] getDpRow(DistributionProtocol dp) {
 		List<String> row = new ArrayList<>();
 
 		row.add(dp.getTitle());
@@ -125,16 +129,55 @@ public class DistributionProtocolExport implements ScheduledTask {
 		row.add(dp.getInstitute().getName());
 		row.add(dp.getDefReceivingSite().getName());
 		row.add(dp.getPrincipalInvestigator().getFirstName() + " " + dp.getPrincipalInvestigator().getLastName());
-		row.addAll(getCustomFieldValues(dp));
+		row.addAll(getDpCustomFieldValues(dp));
 		
 		return row.toArray(new String[row.size()]);
 	}
 	
-	private List<String> getCustomFieldValues(DistributionProtocol dp) {
+	private List<String> getDpCustomFieldValues(DistributionProtocol dp) {
 		return dp.getExtension()
 			.getAttrs().stream()
 			.map(Attr::getDisplayValue)
 			.collect(Collectors.toList());
 	}
-}	
+	
+	///////////////////////
+	//
+	// DPR export
+	//
+	///////////////////////
+	
+	private void exportDpr(CsvFileWriter dpFileWriter, Set<DpRequirement> DpRequirements) {
+		if (!DpRequirements.isEmpty()) {
+			DpRequirements.forEach(dPR -> dpFileWriter.writeNext(getDpRRow(dPR)));
+		}
+	}
 
+	private String[] getDpRRow(DpRequirement dpr) {
+		return new String[] {
+			dpr.getSpecimenType(),
+			dpr.getAnatomicSite(),
+			dpr.getPathologyStatuses().iterator().next(),
+			dpr.getQuantity().toString(),
+			dpr.getCost().toString(),
+			dpr.getDistributionProtocol().getShortTitle()
+		};
+	}
+
+	private CsvFileWriter getDpRCSVWriter() {
+		String timestamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+		File outputFile = new File(ConfigUtil.getInstance().getDataDir(), "DpRequirement_" + timestamp + ".csv");
+		return CsvFileWriter.createCsvFileWriter(outputFile);
+	}
+
+	private String[] getDpRHeader() {
+		return new String[] {
+				"TBRD_SPECIMEN_TYPE_CD",
+				"TBRD_SITE_DESC",
+				"TBRD_CATEGORY_DESC",
+				"TBRD_EXPECTED_AMT", 
+				"TBRD_BILLING_AMT",
+				"TBRD_SOURCE_REQUEST"
+		};
+	}
+}	
