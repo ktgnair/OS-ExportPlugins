@@ -43,14 +43,14 @@ public class SpecimenExport implements ScheduledTask {
             	    csvFileWriter = getCSVWriter();
             	    csvFileWriter.writeNext(getHeader());
 
-           	    boolean endOfSpecimens = false;
-            	    int startAt = 0, maxRecs = 100;
+            	    boolean endOfSpecimens = false;
+           	    int startAt = 0, maxRecs = 100;
 
-               		while (!endOfSpecimens) {
-                    		int exportedRecsCount = exportSpecimens(csvFileWriter, startAt, maxRecs);
-                    		startAt += exportedRecsCount;
-                   		endOfSpecimens = (exportedRecsCount < maxRecs);
-                	}        
+               	    while (!endOfSpecimens) {
+                   	int exportedRecsCount = exportSpecimens(csvFileWriter, startAt, maxRecs);
+                    	startAt += exportedRecsCount;
+                    	endOfSpecimens = (exportedRecsCount < maxRecs);
+                    }        
           	} catch (Exception e) {
               		logger.error("Error while running specimen export job", e);
         	} finally {
@@ -78,11 +78,37 @@ public class SpecimenExport implements ScheduledTask {
     		row.add(specimen.getPathologicalStatus());
     		row.add(specimen.getSpecimenType());
     		row.add(specimen.getCreatedOn().toString());
+    		row.add(getSequenceNumber(specimen));
+    		row.add(forOtherClass(specimen));
+    		row.add(forTissueClass(specimen));
     		row.addAll(getCustomField(specimen));
     	
     		return row.toArray(new String[row.size()]);
     	}
+    	
+    	private String getSequenceNumber(Specimen specimen) {
+    		String specimenLabel = specimen.getLabel();
+    		String[] output = specimenLabel.split("\\.");
+   	     
+   	     	return output[1];
+    	}
     
+    	private String forTissueClass(Specimen specimen) {
+		if (specimen.getSpecimenClass().equals("Tissue")) {
+    			return specimen.getInitialQuantity().toString();
+		}
+			
+		return null;
+    	}
+    	
+    	private String forOtherClass(Specimen specimen) {
+		if (!specimen.getSpecimenClass().equals("Tissue")) {
+    			return specimen.getInitialQuantity().toString();
+		}
+
+		return null;
+    	}
+    	
     	private String getPrimarySpecimenLabel(Specimen specimen) {
     		if (specimen.getParentSpecimen().isPrimary()) {
     			return specimen.getParentSpecimen().getLabel();
@@ -106,7 +132,7 @@ public class SpecimenExport implements ScheduledTask {
     	}
     
     	private List<String> getCustomField(Specimen specimen) {
-		List<String> customList = getCustomFieldNames(specimen);
+    		List<String> customList = getCustomFieldNames(specimen);
     		List<String> valueList = getCustomFieldValues(specimen);
 		
        		ArrayList<String> row = new ArrayList<String>();
@@ -134,11 +160,14 @@ public class SpecimenExport implements ScheduledTask {
 
    	private String[] getHeader() {
         	return new String[] {
-                	"PARENT_SPECIMEN_LABEL",
+               		"PARENT_SPECIMEN_LABEL",
         		"ALIQUOT_LABEL",
         		"TBD_CATEGORY_DESC",
         		"TBD_SPECIMEN_TYPE_DESC",
         		"TBD_SAMPLE_PROCESS_DT",
+        		"TBD_BANK_SEQ_NUM",
+        		"TBD_VOL",
+        		"TBD_WEIGHT",
         		"TBD_BIOBANK_TECH_NAME",
         		"TBD_ADDTL_DETAILS",
         		"TBD_ADDTL_PROCESS_TECH_NAME",
