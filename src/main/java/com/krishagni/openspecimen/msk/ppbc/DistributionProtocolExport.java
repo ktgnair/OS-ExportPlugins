@@ -38,6 +38,7 @@ public class DistributionProtocolExport implements ScheduledTask {
 	
 	public void doJob(ScheduledJobRun jobRun) {
 		export();
+		
 	}
 	
 	private void export() {
@@ -156,21 +157,45 @@ public class DistributionProtocolExport implements ScheduledTask {
 	//
 	///////////////////////
 	
-	private void exportDpr(CsvFileWriter dpFileWriter, Set<DpRequirement> DpRequirements) {
+	private void exportDpr(CsvFileWriter dpRFileWriter, Set<DpRequirement> DpRequirements) {
 		if (!DpRequirements.isEmpty()) {
-			DpRequirements.forEach(dPR -> dpFileWriter.writeNext(getDpRRow(dPR)));
+			// DpRequirements.forEach(dpR -> dpRFileWriter.writeNext(getDpRRow(dpR)));
+			DpRequirements.forEach(dpR -> processDpR(dpRFileWriter, dpR));
 		}
 	}
 
-	private String[] getDpRRow(DpRequirement dpr) {
-		return new String[] {
-			dpr.getSpecimenType(),
-			dpr.getAnatomicSite(),
-			dpr.getPathologyStatuses().iterator().next(),
-			dpr.getQuantity().toString(),
-			dpr.getCost().toString(),
-			dpr.getDistributionProtocol().getShortTitle()
-		};
+	@SuppressWarnings("unchecked")
+	private void processDpR(CsvFileWriter dpRFileWriter, DpRequirement dpR) {
+		List<Attr> extensions = dpR.getExtension().getAttrs();
+		
+		if (extensions.isEmpty()) {
+			dpRFileWriter.writeNext(getDpRRow(dpR, new ArrayList<String>()));
+		}
+		
+		for (Attr extension : extensions) {
+			List<List<Attr>> customFields = (List<List<Attr>>) extension.getValue();
+			customFields.forEach(customField -> dpRFileWriter.writeNext(getDpRRow(dpR, getDpRCustomFieldValues(customField))));
+		}
+	}
+
+	private String[] getDpRRow(DpRequirement dpr, List<String> dpRCustomFieldValues) {
+		List<String> row = new ArrayList<String>();
+		
+		row.add(dpr.getSpecimenType());
+		row.add(dpr.getAnatomicSite());
+		row.add(dpr.getPathologyStatuses().iterator().next());
+		row.add(dpr.getQuantity().toString());
+		row.add(dpr.getCost().toString());
+		row.add(dpr.getDistributionProtocol().getShortTitle());
+		row.addAll(dpRCustomFieldValues);
+		
+		return row.toArray(new String[row.size()]);
+	}
+
+	private List<String> getDpRCustomFieldValues(List<Attr> customField) {
+		return customField.stream()
+				.map(Attr::getDisplayValue)
+				.collect(Collectors.toList());
 	}
 
 	private CsvFileWriter getDpRCSVWriter() {
@@ -186,7 +211,11 @@ public class DistributionProtocolExport implements ScheduledTask {
 				"TBRD_CATEGORY_DESC",
 				"TBRD_EXPECTED_AMT", 
 				"TBRD_BILLING_AMT",
-				"TBRD_SOURCE_REQUEST"
+				"TBRD_SOURCE_REQUEST",
+				"TBRD_HISTOLOGY_DESC",
+				"TBRD_QUALITY_DESC",
+				"TBRD_UNIT_DESC",
+				"TBRD_NOTES"
 		};
 	}
 	
@@ -215,11 +244,11 @@ public class DistributionProtocolExport implements ScheduledTask {
 
 	private void exportDOs(CsvFileWriter doFileWriter, Set<DistributionOrder> distributionOrders) {
 		if (!distributionOrders.isEmpty()) {
-			distributionOrders.forEach(distributionOrder -> writeDoToCsv(doFileWriter, distributionOrder.getOrderItems()));
+			distributionOrders.forEach(distributionOrder -> processDistributionOrders(doFileWriter, distributionOrder.getOrderItems()));
 		}
 	}
 	
-	private void writeDoToCsv(CsvFileWriter doFileWriter, Set<DistributionOrderItem> orderItems) {
+	private void processDistributionOrders(CsvFileWriter doFileWriter, Set<DistributionOrderItem> orderItems) {
 		if (!orderItems.isEmpty()) {
 			orderItems.forEach(item -> doFileWriter.writeNext(getDoRow(item)));
 		}
@@ -237,7 +266,7 @@ public class DistributionProtocolExport implements ScheduledTask {
 		
 		return row.toArray(new String[row.size()]);
 	}
-
+	
 	private String getItemCost(DistributionOrderItem item) {
 		if (item.getCost() != null) {
 			return item.getCost().toString();
