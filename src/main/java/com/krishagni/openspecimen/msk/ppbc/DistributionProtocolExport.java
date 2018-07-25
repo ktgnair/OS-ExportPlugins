@@ -38,7 +38,6 @@ public class DistributionProtocolExport implements ScheduledTask {
 	
 	public void doJob(ScheduledJobRun jobRun) {
 		export();
-		
 	}
 	
 	private void export() {
@@ -134,7 +133,12 @@ public class DistributionProtocolExport implements ScheduledTask {
 			"TBR_SPECIMEN_COLLECTION_METHOD",	// DPCustomFields#SpecimenCollectionMethod
 			"TBR_COMMENTS",				// DPCustomFields#Comments
 			"TBR_CONTACT_NAME",			// DPCustomFields#ContactName
-			"TBR_SPECIMEN_USAGE_DESC"		// DPCustomFields#SpecimenUsage
+			"TBR_SPECIMEN_USAGE_DESC",		// DPCustomFields#SpecimenUsage
+			"TBR_WAIVER_NO",
+			"TBR_MIN_SIZE_DESC",
+			"TBR_DESEASE_DESC",
+			"TBR_STS_DESC",
+			"TBR_SPECIAL_HANDLING_DESC"
 		};
 	}
 
@@ -233,11 +237,11 @@ public class DistributionProtocolExport implements ScheduledTask {
 	
 	private String[] getDoHeader() {
 		return new String[] {
-				"Name",
+				"TBDS_SPECIMEN_REQUEST_ID",
 				"TBDS_DISTRIBUTION_DT",
 				"TBDS_SOURCE_REQUEST",
 				"TBDS_BILLING_AMT",
-				"Specimen Label",
+				"SPECIMEN_LABEL",
 				"TBDS_BILLING_DT"
 		};
 	}
@@ -257,7 +261,7 @@ public class DistributionProtocolExport implements ScheduledTask {
 	private String[] getDoRow(DistributionOrderItem item) {
 		List<String> row = new ArrayList<String>();
 		
-		row.add(item.getOrder().getName());
+		row.add(item.getOrder().getDistributionProtocol().getShortTitle());
 		row.add(item.getOrder().getExecutionDate().toString());
 		row.add(item.getOrder().getDistributionProtocol().getShortTitle());
 		row.add(getItemCost(item));
