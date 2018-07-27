@@ -6,6 +6,8 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
@@ -15,6 +17,7 @@ import org.springframework.beans.factory.annotation.Configurable;
 
 import com.krishagni.catissueplus.core.administrative.domain.ScheduledJobRun;
 import com.krishagni.catissueplus.core.administrative.services.ScheduledTask;
+import com.krishagni.catissueplus.core.biospecimen.domain.BaseExtensionEntity;
 import com.krishagni.catissueplus.core.biospecimen.domain.CollectionProtocolRegistration;
 import com.krishagni.catissueplus.core.biospecimen.domain.Specimen;
 import com.krishagni.catissueplus.core.biospecimen.domain.Visit;
@@ -23,6 +26,7 @@ import com.krishagni.catissueplus.core.biospecimen.repository.DaoFactory;
 import com.krishagni.catissueplus.core.common.PlusTransactional;
 import com.krishagni.catissueplus.core.common.util.ConfigUtil;
 import com.krishagni.catissueplus.core.common.util.CsvFileWriter;
+import com.krishagni.catissueplus.core.de.domain.DeObject.Attr;
 
 @Configurable
 public class ParticipantExport implements ScheduledTask {
@@ -30,7 +34,7 @@ public class ParticipantExport implements ScheduledTask {
 
     @Autowired
     private DaoFactory daoFactory;
-
+   
     @Override
     public void doJob(ScheduledJobRun jobRun) {
         exportParticipants();
@@ -54,7 +58,7 @@ public class ParticipantExport implements ScheduledTask {
           } catch (Exception e) {
               logger.error("Error while running participant export job", e);
         } finally {
-            IOUtils.closeQuietly(csvFileWriter);
+              IOUtils.closeQuietly(csvFileWriter);
         }
     }
 
@@ -70,6 +74,7 @@ public class ParticipantExport implements ScheduledTask {
     private void writeCpr(CollectionProtocolRegistration cpr, CsvFileWriter csvFileWriter) {
     	List<String> props = new ArrayList<>();
     	props.add(cpr.getParticipant().getEmpi());
+    	props.add((String) (getCustomFieldValueMap(cpr.getParticipant()).getOrDefault("NT3", "")));
     	
     	if (!cpr.getVisits().isEmpty()) {
                 cpr.getVisits().forEach(visit -> writeVisit(visit, props, csvFileWriter));
@@ -90,7 +95,7 @@ public class ParticipantExport implements ScheduledTask {
 	
     private void writeSpecimen(Specimen specimen, List<String> specimenProps, CsvFileWriter csvFileWriter) {
     	ArrayList<String> props = populateSpecimen(specimen, specimenProps);
-		
+
     	csvFileWriter.writeNext(props.toArray(new String[props.size()]));
     }
 	
@@ -99,12 +104,21 @@ public class ParticipantExport implements ScheduledTask {
 		
     	props.add(visit.getName());
     	props.add(visit.getVisitDate().toString()); 
-    	props.add(visit.getSite().getName()); 
-    	props.add(visit.getClinicalDiagnoses().iterator().next());
+    	props.add(getSiteName(visit));
+    	props.add(getClinicalDiagnoses(visit));
     	props.add(visit.getSurgicalPathologyNumber()); 
     	props.add(visit.getComments());
+    	props.addAll(getCustomField(visit));
 		
     	return props;
+    }
+    
+    private String getSiteName(Visit visit) {
+    	return visit.getSite() != null ? visit.getSite().getName() : "";
+    }
+    
+    private String getClinicalDiagnoses(Visit visit) {
+    	return visit.getClinicalDiagnoses().isEmpty() ? "" : visit.getClinicalDiagnoses().iterator().next();
     }
 
     private ArrayList<String> populateSpecimen(Specimen specimen, List<String> specimenProps) {
@@ -120,8 +134,60 @@ public class ParticipantExport implements ScheduledTask {
     	props.add(specimen.getComment());
     	props.add(specimen.getCollRecvDetails().getCollTime().toString());
     	props.add(specimen.getCollRecvDetails().getRecvTime().toString());
-		
+    	props.addAll(getCustomField(specimen));
+
     	return props;
+    }
+    
+    private Map<String, Object> getCustomFieldValueMap(BaseExtensionEntity obj) {
+	return obj.getExtension().getAttrValues();
+    }
+    
+    private List<String> getCustomFieldValues(BaseExtensionEntity obj) {
+	return obj.getExtension()
+		.getAttrs().stream()
+		.map(Attr::getDisplayValue)
+		.collect(Collectors.toList());
+    }
+    
+    private List<String> getCustomFieldNames(BaseExtensionEntity obj) {
+       	return obj.getExtension()
+        	.getAttrs().stream()
+        	.map(Attr::getCaption)
+        	.collect(Collectors.toList());
+    }
+      
+    private List<String> getCustomField(Visit visit) {
+        List<String> customList = getCustomFieldNames(visit);
+        List<String> valueList = getCustomFieldValues(visit);
+    		
+        ArrayList<String> row = new ArrayList<String>();
+        row.add(valueList.get(customList.indexOf("Diagnosis Notes")));
+        row.add(valueList.get(customList.indexOf("Operation Date")));
+        row.add(valueList.get(customList.indexOf("Path Date")));
+        row.add(valueList.get(customList.indexOf("Surgeon Name")));
+        row.add(valueList.get(customList.indexOf("Specimen Description")));
+        row.add(valueList.get(customList.indexOf("NUN (N)")));
+        row.add(valueList.get(customList.indexOf("NUN (T)")));
+        row.add(valueList.get(customList.indexOf("OCT (N)")));
+        row.add(valueList.get(customList.indexOf("OCT (T)")));
+
+       	return row;
+    }
+    
+    private List<String> getCustomField(Specimen specimen) {
+    	ArrayList<String> row = new ArrayList<String>();
+    	List<String> customList = getCustomFieldNames(specimen);
+    	List<String> valueList = getCustomFieldValues(specimen);
+       	
+        row.add(valueList.get(customList.indexOf("Part Number")));
+        row.add(valueList.get(customList.indexOf("Part Sub Number")));
+        row.add(valueList.get(customList.indexOf("Biobank Technician")));
+        row.add(valueList.get(customList.indexOf("Accessioning Temperature Condition")));
+        row.add(valueList.get(customList.indexOf("Biobank Temperature")));
+        row.add(valueList.get(customList.indexOf("Location")));
+       
+    	return row;
     }
 
     private CsvFileWriter getCSVWriter() {
@@ -132,13 +198,23 @@ public class ParticipantExport implements ScheduledTask {
 
     private String[] getHeader() {
         return new String[] {
-                "TBA_CRDB_MRN", 
+                "TBA_CRDB_MRN",
+                "TBA_PT_DEIDENTIFICATION_ID",
                 "TBD_BANK_NUM",
                 "TBA_PROCUREMENT_DTE",
                 "TBD_BANK_SUB_CD",
                 "TBA_DISEASE_DESC",
                 "TBA_ACCESSION_NUM",
                 "TBD_BANK_NOTE",
+                "TBA_DIAGNOSIS_NOTE",
+                "TBA_SURG_STRT_DT",
+                "TBA_PATH_REVIEW_DT",
+                "TBA_SURGEON_NAME",
+                "Surgical path report",
+                "TBD_NUN_N",
+                "TBD_NUN_T",
+                "TBD_OCT_N",
+                "TBD_OCT_T",
                 "PARENT_SPECIMEN_LABEL",
                 "TBD_SPECIMEN_TYPE_DESC",   
                 "TBA_SITE_DESC",
@@ -148,7 +224,13 @@ public class ParticipantExport implements ScheduledTask {
                 "TBD_SAMPLE_PROCESS_DT",        
                 "TBA_SITE_TEXT",        
                 "TBA_RESECT_DT",      
-                "TBA_BIOBANK_RECEIPT_DT"
+                "TBA_BIOBANK_RECEIPT_DT",
+                "TBA_PART_NUM",
+                "TBA_SUB_PART_NUM",
+                "TBA_BIOBANK_TECH_NAME",
+                "TBA_TEMPERATURE_COND_DESC",
+                "TBA_BIOBANK_TEMPERATURE_COND_DESC",
+                "TBA_SITE_LOCATION_DESC"
         };
     }
 }
