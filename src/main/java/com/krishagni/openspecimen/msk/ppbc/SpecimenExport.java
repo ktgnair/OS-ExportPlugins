@@ -6,7 +6,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
@@ -16,13 +16,13 @@ import org.springframework.beans.factory.annotation.Configurable;
 
 import com.krishagni.catissueplus.core.administrative.domain.ScheduledJobRun;
 import com.krishagni.catissueplus.core.administrative.services.ScheduledTask;
+import com.krishagni.catissueplus.core.biospecimen.domain.BaseExtensionEntity;
 import com.krishagni.catissueplus.core.biospecimen.domain.Specimen;
 import com.krishagni.catissueplus.core.biospecimen.repository.DaoFactory;
 import com.krishagni.catissueplus.core.biospecimen.repository.SpecimenListCriteria;
 import com.krishagni.catissueplus.core.common.PlusTransactional;
 import com.krishagni.catissueplus.core.common.util.ConfigUtil;
 import com.krishagni.catissueplus.core.common.util.CsvFileWriter;
-import com.krishagni.catissueplus.core.de.domain.DeObject.Attr;
 
 @Configurable
 public class SpecimenExport implements ScheduledTask {
@@ -60,7 +60,10 @@ public class SpecimenExport implements ScheduledTask {
     
     @PlusTransactional
     private int exportSpecimens(CsvFileWriter csvFileWriter, int startAt, int maxRecs) throws IOException {
-       	SpecimenListCriteria speciListCriteria = new SpecimenListCriteria().startAt(startAt).maxResults(maxRecs).lineages(new String[]{"Aliquot"});
+       	SpecimenListCriteria speciListCriteria = new SpecimenListCriteria()
+       							.startAt(startAt)
+       							.maxResults(maxRecs)
+       							.lineages(new String[]{"Aliquot"});
        	List<Specimen> specimens = daoFactory.getSpecimenDao().getSpecimens(speciListCriteria);
         
        	specimens.forEach(specimen -> csvFileWriter.writeNext(getRow(specimen)));
@@ -71,7 +74,6 @@ public class SpecimenExport implements ScheduledTask {
     
     private String[] getRow(Specimen specimen) {
     	List<String> row = new ArrayList<>();
-    	getCustomFieldNames(specimen);
     	
     	row.add(getPrimarySpecimenLabel(specimen));
     	row.add(specimen.getLabel());
@@ -110,37 +112,26 @@ public class SpecimenExport implements ScheduledTask {
     		return null;
     	}
     }	
-    
-    private List<String> getCustomFieldValues(Specimen specimen) {
-    	return specimen.getExtension()
-    		.getAttrs().stream()
-    		.map(Attr::getDisplayValue)
-    		.collect(Collectors.toList());
-    }
-    
-    private List<String> getCustomFieldNames(Specimen specimen) {
-   	return specimen.getExtension()
-    		.getAttrs().stream()
-    		.map(Attr::getCaption)
-    		.collect(Collectors.toList());
-    }
+      
+    private Map<String, String> getCustomFieldValueMap(BaseExtensionEntity obj) {
+    	return obj.getExtension().getLabelValueMap();
+    }    
     
     private List<String> getCustomField(Specimen specimen) {
-    	List<String> customList = getCustomFieldNames(specimen);
-    	List<String> valueList = getCustomFieldValues(specimen);
-		
-       	ArrayList<String> row = new ArrayList<String>();
-        row.add(valueList.get(customList.indexOf("Freshness Degree")));
-        row.add(valueList.get(customList.indexOf("Time Lapse")));
-        row.add(valueList.get(customList.indexOf("Unit Description")));
-        row.add(valueList.get(customList.indexOf("Special Handling Description")));
-        row.add(valueList.get(customList.indexOf("Is The Sample Sterile?")));
-        row.add(valueList.get(customList.indexOf("Biobank Technician")));
-        row.add(valueList.get(customList.indexOf("Additional Information")));
-        row.add(valueList.get(customList.indexOf("Additional Processing Date")));
-        row.add(valueList.get(customList.indexOf("Additional Processing Technician")));
-        row.add(valueList.get(customList.indexOf("Additional Processing Temperature")));
-
+    	ArrayList<String> row = new ArrayList<String>();
+    	Map<String, String> customFieldValueMap = getCustomFieldValueMap(specimen);
+    	
+    	row.add((String) (customFieldValueMap.getOrDefault("Freshness Degree","")));
+    	row.add((String) (customFieldValueMap.getOrDefault("Time Lapse","")));
+    	row.add((String) (customFieldValueMap.getOrDefault("Unit Description","")));
+    	row.add((String) (customFieldValueMap.getOrDefault("Special Handling Description","")));
+    	row.add((String) (customFieldValueMap.getOrDefault("Is The Sample Sterile?","")));
+    	row.add((String) (customFieldValueMap.getOrDefault("Biobank Technician","")));
+    	row.add((String) (customFieldValueMap.getOrDefault("Additional Information","")));
+    	row.add((String) (customFieldValueMap.getOrDefault("Additional Processing Date","")));
+    	row.add((String) (customFieldValueMap.getOrDefault("Additional Processing Technician","")));
+    	row.add((String) (customFieldValueMap.getOrDefault("Additional Processing Temperature","")));
+   
     	return row;
     }
     
@@ -152,7 +143,7 @@ public class SpecimenExport implements ScheduledTask {
 
     private String[] getHeader() {
         return new String[] {
-     	      	"PARENT_SPECIMEN_LABEL",
+     	    	"PARENT_SPECIMEN_LABEL",
         	"ALIQUOT_LABEL",
         	"TBD_CATEGORY_DESC",
         	"TBD_SPECIMEN_TYPE_DESC",
@@ -169,7 +160,7 @@ public class SpecimenExport implements ScheduledTask {
         	"TBD_ADDTL_DETAILS",
         	"TBD_ADDTL_PROCESS_DT",
         	"TBD_ADDTL_PROCESS_TECH_NAME",
-        	"TBD_ADDTL_PROCESS_TEMPERATURE_DESC", 		
+        	"TBD_ADDTL_PROCESS_TEMPERATURE_DESC",
        	};
     }
 }
