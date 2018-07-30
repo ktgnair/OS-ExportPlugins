@@ -5,8 +5,11 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
@@ -58,12 +61,28 @@ public class SpecimenExport implements ScheduledTask {
         }
     }
     
+    private Map<String, String> getCustomFieldValueMap(BaseExtensionEntity obj) {
+    	return obj.getExtension().getAttrs().stream().collect(
+    			Collectors.toMap(
+    				attr -> attr.getCaption(),
+    				attr -> attr.getDisplayValue(""),
+    				(v1, v2) -> {throw new IllegalStateException("Duplicate key");},
+    				LinkedHashMap::new)
+    			);
+    }
+    
+    private CsvFileWriter getCSVWriter() {
+        String timeStamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+        File file = new File(ConfigUtil.getInstance().getDataDir(), "specimens_" + timeStamp + ".csv");
+        return CsvFileWriter.createCsvFileWriter(file);
+    }
+    
     @PlusTransactional
     private int exportSpecimens(CsvFileWriter csvFileWriter, int startAt, int maxRecs) throws IOException {
        	SpecimenListCriteria speciListCriteria = new SpecimenListCriteria()
-       							.startAt(startAt)
-       							.maxResults(maxRecs)
-       							.lineages(new String[]{"Aliquot"});
+       						.startAt(startAt)
+       						.maxResults(maxRecs)
+       						.lineages(new String[]{"Aliquot"});
        	List<Specimen> specimens = daoFactory.getSpecimenDao().getSpecimens(speciListCriteria);
         
        	specimens.forEach(specimen -> csvFileWriter.writeNext(getRow(specimen)));
@@ -75,25 +94,25 @@ public class SpecimenExport implements ScheduledTask {
     private String[] getRow(Specimen specimen) {
     	List<String> row = new ArrayList<>();
     	
-    	row.add(getPrimarySpecimenLabel(specimen));
+    	row.add(getPrimarySpecimen(specimen).getLabel());
     	row.add(specimen.getLabel());
     	row.add(specimen.getPathologicalStatus());
     	row.add(specimen.getSpecimenType());
     	row.add(getSequenceNumber(specimen));
     	row.add(getSpecimenQuantity(specimen, "TBD_VOL"));
     	row.add(getSpecimenQuantity(specimen, "TBD_WEIGHT"));
-    	row.add(specimen.getCreatedOn().toString());
+    	row.add(getSpecimenCreatedOn(specimen));
     	row.addAll(getCustomField(specimen));
     	
     	return row.toArray(new String[row.size()]);
     }
     
-    private String getPrimarySpecimenLabel(Specimen specimen) {
+    private Specimen getPrimarySpecimen(Specimen specimen) {
     	if (specimen.getParentSpecimen().isPrimary()) {
-    		return specimen.getParentSpecimen().getLabel();
+    		return specimen.getParentSpecimen();
     	}
     	
-    	return getPrimarySpecimenLabel(specimen.getParentSpecimen());
+    	return getPrimarySpecimen(specimen.getParentSpecimen());
     }
     
     private String getSequenceNumber(Specimen specimen) {
@@ -112,17 +131,17 @@ public class SpecimenExport implements ScheduledTask {
     		return null;
     	}
     }	
-      
-    private Map<String, String> getCustomFieldValueMap(BaseExtensionEntity obj) {
-    	return obj.getExtension().getLabelValueMap();
-    }    
+    
+    private String getSpecimenCreatedOn(Specimen specimen) {
+    	return specimen.getCreatedOn() != null ? specimen.getCreatedOn().toString() : "";
+    }
     
     private List<String> getCustomField(Specimen specimen) {
     	ArrayList<String> row = new ArrayList<String>();
     	Map<String, String> customFieldValueMap = getCustomFieldValueMap(specimen);
     	
     	row.add((String) (customFieldValueMap.getOrDefault("Freshness Degree","")));
-    	row.add((String) (customFieldValueMap.getOrDefault("Time Lapse","")));
+    	row.add(getCalculatedTime(specimen, customFieldValueMap.getOrDefault("Time Lapse", "")));
     	row.add((String) (customFieldValueMap.getOrDefault("Unit Description","")));
     	row.add((String) (customFieldValueMap.getOrDefault("Special Handling Description","")));
     	row.add((String) (customFieldValueMap.getOrDefault("Is The Sample Sterile?","")));
@@ -135,10 +154,15 @@ public class SpecimenExport implements ScheduledTask {
     	return row;
     }
     
-    private CsvFileWriter getCSVWriter() {
-        String timeStamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
-        File file = new File(ConfigUtil.getInstance().getDataDir(), "specimens_" + timeStamp + ".csv");
-        return CsvFileWriter.createCsvFileWriter(file);
+    private String getCalculatedTime(Specimen specimen, String timeLapse) {
+    	
+    	Date collDate = getPrimarySpecimen(specimen).getCollRecvDetails().getCollTime();
+    	Date createdDate = specimen.getCreatedOn();
+    	
+    	long diff = createdDate.getTime() - collDate.getTime();
+    	long timeInMinutes = TimeUnit.MILLISECONDS.toMinutes(diff);
+    	
+	return timeLapse.equals("") ? Long.toString(timeInMinutes) : timeLapse;
     }
 
     private String[] getHeader() {
@@ -160,7 +184,7 @@ public class SpecimenExport implements ScheduledTask {
         	"TBD_ADDTL_DETAILS",
         	"TBD_ADDTL_PROCESS_DT",
         	"TBD_ADDTL_PROCESS_TECH_NAME",
-        	"TBD_ADDTL_PROCESS_TEMPERATURE_DESC",
+        	"TBD_ADDTL_PROCESS_TEMPERATURE_DESC"
        	};
     }
 }

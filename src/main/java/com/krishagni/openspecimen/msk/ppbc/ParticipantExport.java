@@ -5,8 +5,10 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
@@ -61,7 +63,13 @@ public class ParticipantExport implements ScheduledTask {
     }
     
     private Map<String, String> getCustomFieldValueMap(BaseExtensionEntity obj) {
-    	return obj.getExtension().getLabelValueMap();
+    	return obj.getExtension().getAttrs().stream().collect(
+    			Collectors.toMap(
+    				attr -> attr.getCaption(),
+    				attr -> attr.getDisplayValue(""),
+    				(v1, v2) -> {throw new IllegalStateException("Duplicate key");},
+    				LinkedHashMap::new)
+    			);
     }
     
     private CsvFileWriter getCSVWriter() {
@@ -146,7 +154,7 @@ public class ParticipantExport implements ScheduledTask {
     
     private ArrayList<String> populateVisit(Visit visit, List<String> visitProps) {
     	ArrayList<String> props = new ArrayList<String>(visitProps);
-		
+		    	
     	props.add(visit.getName());
     	props.add(visit.getVisitDate().toString()); 
     	props.add(getSiteName(visit));
