@@ -156,10 +156,13 @@ public class SpecimenExport implements ScheduledTask {
     }
     
     private String getCalculatedTime(Specimen specimen, String timeLapse) {
-    	
     	Date collDate = getPrimarySpecimen(specimen).getCollRecvDetails().getCollTime();
     	Date createdDate = specimen.getCreatedOn();
     	
+    	if (createdDate == null) {
+    		return "Not Applicable";
+    	}
+
     	long diff = createdDate.getTime() - collDate.getTime();
     	long timeInMinutes = TimeUnit.MILLISECONDS.toMinutes(diff);
     	
