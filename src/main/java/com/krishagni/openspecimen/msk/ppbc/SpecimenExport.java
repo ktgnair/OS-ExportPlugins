@@ -26,6 +26,7 @@ import com.krishagni.catissueplus.core.biospecimen.repository.SpecimenListCriter
 import com.krishagni.catissueplus.core.common.PlusTransactional;
 import com.krishagni.catissueplus.core.common.util.ConfigUtil;
 import com.krishagni.catissueplus.core.common.util.CsvFileWriter;
+import com.krishagni.catissueplus.core.common.util.Utility;
 
 @Configurable
 public class SpecimenExport implements ScheduledTask {
@@ -133,7 +134,7 @@ public class SpecimenExport implements ScheduledTask {
     }	
     
     private String getSpecimenCreatedOn(Specimen specimen) {
-    	return specimen.getCreatedOn() != null ? specimen.getCreatedOn().toString() : "";
+    	return specimen.getCreatedOn() != null ? Utility.getDateTimeString(specimen.getCreatedOn()) : "";
     }
     
     private List<String> getCustomField(Specimen specimen) {
@@ -162,7 +163,7 @@ public class SpecimenExport implements ScheduledTask {
     	long diff = createdDate.getTime() - collDate.getTime();
     	long timeInMinutes = TimeUnit.MILLISECONDS.toMinutes(diff);
     	
-	return timeLapse.equals("") ? Long.toString(timeInMinutes) : timeLapse;
+    	return timeLapse.equals("") ? Long.toString(timeInMinutes) : timeLapse;
     }
 
     private String[] getHeader() {
@@ -174,7 +175,7 @@ public class SpecimenExport implements ScheduledTask {
         	"TBD_BANK_SEQ_NUM",
         	"TBD_VOL",
         	"TBD_WEIGHT",
-        	"TBD_SAMPLE_PROCESS_DT",
+        	"TBD_SAMPLE_PROCESS_DT", 
         	"TBD_QUALITY_DESC",
         	"TBD_TIME_LAPSE_MIN",
         	"TBD_UNIT_DESC",

@@ -79,10 +79,14 @@ public class ParticipantExport implements ScheduledTask {
     }
     
     private static List<String> splitToMultiple(String inputString, int maxSize, String delimiter) {
+    	if (inputString == null) {
+            inputString = "";
+    	}
+    	
     	String[] maxSizeBufferArray = new String[maxSize];
-	String[] splittedArray = inputString.split(delimiter);
-	List<String> multipleAttrs = new ArrayList<>();
-	int i = 0;
+    	String[] splittedArray = inputString.split(delimiter);
+    	List<String> multipleAttrs = new ArrayList<>();
+    	int i = 0;
 	    
 	while (i < maxSize) {
 	    if (i < splittedArray.length) {
@@ -98,7 +102,7 @@ public class ParticipantExport implements ScheduledTask {
     	}
     	
     	return multipleAttrs;
-	}
+    }
     
     ///////////////////
     //
@@ -257,8 +261,8 @@ public class ParticipantExport implements ScheduledTask {
                 "TBA_SURG_STRT_DT",
                 "TBA_PATH_REVIEW_DT",
                 "TBA_SURGEON_NAME",
-                "Surgical path report",
-                "TBD_NUN_N",
+                "SURGICAL_PATH_REPORT",
+                "TBD_NUN_N",	
                 "TBD_NUN_T",
                 "TBD_OCT_N",
                 "TBD_OCT_T",
