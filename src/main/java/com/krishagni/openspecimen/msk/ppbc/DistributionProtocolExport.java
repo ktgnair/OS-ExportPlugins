@@ -5,11 +5,14 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -91,7 +94,43 @@ public class DistributionProtocolExport implements ScheduledTask {
 			.map(Attr::getDisplayValue)
 			.collect(Collectors.toList());
 	}
-
+	
+	private Map<String, String> getCustomFieldValueMap(BaseExtensionEntity obj) {
+    	return obj.getExtension().getAttrs().stream().collect(
+    			Collectors.toMap(
+    				attr -> attr.getCaption(),
+    				attr -> attr.getDisplayValue(""),
+    				(v1, v2) -> {throw new IllegalStateException("Duplicate key");},
+    				LinkedHashMap::new)
+    			);
+    }
+	
+	private static List<String> splitToMultiple(String inputString, int maxSize, String delimiter) {
+		if (inputString == null) {
+			inputString = "";
+		}
+		
+        String[] maxSizeBufferArray = new String[maxSize];
+        String[] splittedArray = inputString.split(delimiter);
+        List<String> multipleAttrs = new ArrayList<>();
+        int i = 0;
+        
+        while (i < maxSize) {
+            if (i < splittedArray.length) {
+                maxSizeBufferArray[i] = splittedArray[i];
+            } else {
+                maxSizeBufferArray[i] = "";
+            }
+            i++;
+        }
+        
+        for (String site : maxSizeBufferArray) {
+            multipleAttrs.add(site);
+        }
+        
+        return multipleAttrs;
+	}
+	
 	///////////////////////
 	//
 	// DP export
@@ -136,7 +175,7 @@ public class DistributionProtocolExport implements ScheduledTask {
 			"TBR_SPECIMEN_USAGE_DESC",		// DPCustomFields#SpecimenUsage
 			"TBR_WAIVER_NO",
 			"TBR_MIN_SIZE_DESC",
-			"TBR_DESEASE_DESC",
+			// "TBR_DESEASE_DESC",			// Ignored, Already present in Accession sheet
 			"TBR_STS_DESC",
 			"TBR_SPECIAL_HANDLING_DESC"
 		};
@@ -144,17 +183,45 @@ public class DistributionProtocolExport implements ScheduledTask {
 
 	private String[] getDpRow(DistributionProtocol dp) {
 		List<String> row = new ArrayList<>();
-
+		Map<String, String> customFieldValueMap = getCustomFieldValueMap(dp);
+		
 		row.add(dp.getTitle());
 		row.add(dp.getShortTitle());
 		row.add(dp.getInstitute().getName());
-		row.add(dp.getDefReceivingSite().getName());
+		row.add(getDpReceivingSiteName(dp));
 		row.add(dp.getPrincipalInvestigator().getFirstName() + " " + dp.getPrincipalInvestigator().getLastName());
-		row.addAll(getCustomFieldValues(dp));
+		
+		row.add((String) (customFieldValueMap.getOrDefault("Request Date", "")));
+		row.add((String) (customFieldValueMap.getOrDefault("ILAB No", "")));
+		row.add((String) (customFieldValueMap.getOrDefault("Finalize Flag", "")));
+		row.add((String) (customFieldValueMap.getOrDefault("Cost Center", "")));
+		row.add((String) (customFieldValueMap.getOrDefault("Fund ID", "")));
+		row.add((String) (customFieldValueMap.getOrDefault("MTA Flag", "")));
+		row.add((String) (customFieldValueMap.getOrDefault("Distribution Option Desc", "")));
+		row.add((String) (customFieldValueMap.getOrDefault("HBC ID", "")));
+		row.add((String) (customFieldValueMap.getOrDefault("HBC Committee Approval Date", "")));
+		row.add((String) (customFieldValueMap.getOrDefault("Minimum Unit", "")));
+		row.add((String) (customFieldValueMap.getOrDefault("MTA Approval Date", "")));
+		row.add((String) (customFieldValueMap.getOrDefault("Pickup Arrangement Description","")));
+		row.add((String) (customFieldValueMap.getOrDefault("Prospect Flag","")));
+		row.add((String) (customFieldValueMap.getOrDefault("Type Description","")));
+		row.add((String) (customFieldValueMap.getOrDefault("Restrospect Flag","")));
+		row.add((String) (customFieldValueMap.getOrDefault("Specimen Collection Method","")));
+		row.add((String) (customFieldValueMap.getOrDefault("Comments","")));
+		row.add((String) (customFieldValueMap.getOrDefault("Contact Name","")));
+		row.add((String) (customFieldValueMap.getOrDefault("Specimen Usage Description","")));
+		row.add((String) (customFieldValueMap.getOrDefault("Waiver Number","")));
+		row.add((String) (customFieldValueMap.getOrDefault("Minimum Size","")));
+		row.add((String) (customFieldValueMap.getOrDefault("Disease Status","")));
+		row.add((String) (customFieldValueMap.getOrDefault("Special Handling","")));
 		
 		return row.toArray(new String[row.size()]);
 	}
 	
+	private String getDpReceivingSiteName(DistributionProtocol dp) {
+		return dp.getDefReceivingSite() != null ? dp.getDefReceivingSite().getName() : "";
+	}
+
 	///////////////////////
 	//
 	// DPR export
@@ -163,7 +230,6 @@ public class DistributionProtocolExport implements ScheduledTask {
 	
 	private void exportDpr(CsvFileWriter dpRFileWriter, Set<DpRequirement> DpRequirements) {
 		if (!DpRequirements.isEmpty()) {
-			// DpRequirements.forEach(dpR -> dpRFileWriter.writeNext(getDpRRow(dpR)));
 			DpRequirements.forEach(dpR -> processDpR(dpRFileWriter, dpR));
 		}
 	}
@@ -181,25 +247,59 @@ public class DistributionProtocolExport implements ScheduledTask {
 			customFields.forEach(customField -> dpRFileWriter.writeNext(getDpRRow(dpR, getDpRCustomFieldValues(customField))));
 		}
 	}
-
+	
 	private String[] getDpRRow(DpRequirement dpr, List<String> dpRCustomFieldValues) {
 		List<String> row = new ArrayList<String>();
 		
 		row.add(dpr.getSpecimenType());
-		row.add(dpr.getAnatomicSite());
-		row.add(dpr.getPathologyStatuses().iterator().next());
+		row.addAll(splitToMultiple(dpr.getAnatomicSite(), 3, "/")); 
+		row.add(getPathologyStatus(dpr));
 		row.add(dpr.getQuantity().toString());
-		row.add(dpr.getCost().toString());
+		row.add(getDprCost(dpr));
 		row.add(dpr.getDistributionProtocol().getShortTitle());
 		row.addAll(dpRCustomFieldValues);
 		
 		return row.toArray(new String[row.size()]);
 	}
 
+	private String getPathologyStatus(DpRequirement dpr) {
+		return dpr.getPathologyStatuses().isEmpty() ? "" : dpr.getPathologyStatuses().iterator().next();
+	}
+
+	private String getDprCost(DpRequirement dpr) {
+		return dpr.getCost() != null ? dpr.getCost().toString() : "";
+	}
+
 	private List<String> getDpRCustomFieldValues(List<Attr> customField) {
-		return customField.stream()
-				.map(Attr::getDisplayValue)
-				.collect(Collectors.toList());
+		List<String> customFieldValues = new ArrayList<>();
+		
+		if (!histologyValuePresent(customField)) {
+			customFieldValues.addAll(0, splitToMultiple("", 3, "/"));
+			customFieldValues.addAll(customField.stream()
+					.map(Attr::getDisplayValue)
+					.collect(Collectors.toList()));
+			
+			return customFieldValues;
+		} else {
+			customFieldValues.addAll(customField.stream()
+					.map(Attr::getDisplayValue)
+					.collect(Collectors.toList()));
+			String histology = customFieldValues.get(0);
+			customFieldValues.remove(0);
+			customFieldValues.addAll(0, splitToMultiple(histology, 4, "/"));
+			
+			return customFieldValues;
+		}
+	}
+
+	private boolean histologyValuePresent(List<Attr> customFieldValues) {
+		for (Attr value : customFieldValues) {
+			if (value.getCaption().equals("Histology") && !StringUtils.isEmpty(value.getDisplayValue())) {
+				return true;
+			}
+		}
+		
+		return false;
 	}
 
 	private CsvFileWriter getDpRCSVWriter() {
@@ -212,11 +312,16 @@ public class DistributionProtocolExport implements ScheduledTask {
 		return new String[] {
 				"TBRD_SPECIMEN_TYPE_CD",
 				"TBRD_SITE_DESC",
+				"TBRD_SUB_SITE_DESC",
+				"TBRD_SUB2_SITE_DESC",
 				"TBRD_CATEGORY_DESC",
 				"TBRD_EXPECTED_AMT", 
 				"TBRD_BILLING_AMT",
 				"TBRD_SOURCE_REQUEST",
 				"TBRD_HISTOLOGY_DESC",
+				"TBRD_HISTOLOGY_SUB_DESC",
+				"TBRD_HISTOLOGY_SUB2_DESC",
+				"TBRD_HISTOLOGY_SUB3_DESC",
 				"TBRD_QUALITY_DESC",
 				"TBRD_UNIT_DESC",
 				"TBRD_NOTES"
@@ -272,10 +377,6 @@ public class DistributionProtocolExport implements ScheduledTask {
 	}
 	
 	private String getItemCost(DistributionOrderItem item) {
-		if (item.getCost() != null) {
-			return item.getCost().toString();
-		} else {
-			return "";
-		}
+		return item.getCost() != null ? item.getCost().toString() : "";
 	}
 }	
