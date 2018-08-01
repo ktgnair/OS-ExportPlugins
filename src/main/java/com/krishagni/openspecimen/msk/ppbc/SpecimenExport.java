@@ -11,55 +11,29 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import org.apache.commons.io.IOUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Configurable;
 
-import com.krishagni.catissueplus.core.administrative.domain.ScheduledJobRun;
-import com.krishagni.catissueplus.core.administrative.services.ScheduledTask;
 import com.krishagni.catissueplus.core.biospecimen.domain.BaseExtensionEntity;
 import com.krishagni.catissueplus.core.biospecimen.domain.Specimen;
-import com.krishagni.catissueplus.core.biospecimen.repository.DaoFactory;
-import com.krishagni.catissueplus.core.biospecimen.repository.SpecimenListCriteria;
-import com.krishagni.catissueplus.core.common.PlusTransactional;
 import com.krishagni.catissueplus.core.common.util.ConfigUtil;
 import com.krishagni.catissueplus.core.common.util.CsvFileWriter;
 import com.krishagni.catissueplus.core.common.util.Utility;
 
 @Configurable
-public class SpecimenExport implements ScheduledTask {
-    private static final Log logger = LogFactory.getLog(SpecimenExport.class);
-	
-    @Autowired
-    private DaoFactory daoFactory;
-	
-    @Override
-    public void doJob(ScheduledJobRun jobRun) {
-        exportSpecimens();
+public class SpecimenExport {
+   private  CsvFileWriter csvFileWriter;
+   
+    public SpecimenExport() {
+    	this.csvFileWriter = getCSVWriter();
+    	this.csvFileWriter.writeNext(getHeader());
     }
-
-    private void exportSpecimens() {
-        CsvFileWriter csvFileWriter = null;
-
-        try {
-            csvFileWriter = getCSVWriter();
-            csvFileWriter.writeNext(getHeader());
-
-            boolean endOfSpecimens = false;
-            int startAt = 0, maxRecs = 100;
-
-     	    while (!endOfSpecimens) {
-               	int exportedRecsCount = exportSpecimens(csvFileWriter, startAt, maxRecs);
-                startAt += exportedRecsCount;
-                endOfSpecimens = (exportedRecsCount < maxRecs);
-            }        
-        } catch (Exception e) {
-            logger.error("Error while running specimen export job", e);
-        } finally {
-            IOUtils.closeQuietly(csvFileWriter);
-        }
+    
+    public CsvFileWriter getCsvFileWriter() {
+    	return this.csvFileWriter;
+    }
+    
+   public void exportSpecimens(Specimen specimen) {
+	   csvFileWriter.writeNext(getRow(specimen));
     }
     
     private Map<String, String> getCustomFieldValueMap(BaseExtensionEntity obj) {
@@ -78,21 +52,7 @@ public class SpecimenExport implements ScheduledTask {
         return CsvFileWriter.createCsvFileWriter(file);
     }
     
-    @PlusTransactional
-    private int exportSpecimens(CsvFileWriter csvFileWriter, int startAt, int maxRecs) throws IOException {
-       	SpecimenListCriteria speciListCriteria = new SpecimenListCriteria()
-       						.startAt(startAt)
-       						.maxResults(maxRecs)
-       						.lineages(new String[]{"Aliquot"});
-       	List<Specimen> specimens = daoFactory.getSpecimenDao().getSpecimens(speciListCriteria);
-        
-       	specimens.forEach(specimen -> csvFileWriter.writeNext(getRow(specimen)));
-
-       	csvFileWriter.flush();
-       	return specimens.size();
-    }
-    
-    private String[] getRow(Specimen specimen) {
+   public String[] getRow(Specimen specimen) {
     	List<String> row = new ArrayList<>();
     	
     	row.add(getPrimarySpecimen(specimen).getLabel());
@@ -171,7 +131,7 @@ public class SpecimenExport implements ScheduledTask {
 
     private String[] getHeader() {
         return new String[] {
-     	    	"PARENT_SPECIMEN_LABEL",
+     	   	"PARENT_SPECIMEN_LABEL",
         	"ALIQUOT_LABEL",
         	"TBD_CATEGORY_DESC",
         	"TBD_SPECIMEN_TYPE_DESC",
@@ -190,5 +150,9 @@ public class SpecimenExport implements ScheduledTask {
         	"TBD_ADDTL_PROCESS_TECH_NAME",
         	"TBD_ADDTL_PROCESS_TEMPERATURE_DESC"
        	};
+    }
+    
+    public void closeWriter() throws IOException {
+    	this.csvFileWriter.close();
     }
 }

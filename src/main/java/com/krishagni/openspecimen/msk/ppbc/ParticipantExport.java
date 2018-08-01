@@ -8,6 +8,7 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.commons.io.IOUtils;
@@ -42,8 +43,9 @@ public class ParticipantExport implements ScheduledTask {
 
     private void exportParticipants() {
         CsvFileWriter csvFileWriter = null;
-
+        SpecimenExport specimenExport = new SpecimenExport();
         try {
+        	
             csvFileWriter = getCSVWriter();
             csvFileWriter.writeNext(getHeader());
 
@@ -51,7 +53,7 @@ public class ParticipantExport implements ScheduledTask {
             int startAt = 0, maxRecs = 100;
 
             while (!endOfParticipants) {
-                int exportedRecsCount = exportParticipants(csvFileWriter, startAt, maxRecs);
+                int exportedRecsCount = exportParticipants(csvFileWriter, specimenExport, startAt, maxRecs);
                 startAt += exportedRecsCount;
                 endOfParticipants = (exportedRecsCount < maxRecs);
             }        
@@ -59,6 +61,7 @@ public class ParticipantExport implements ScheduledTask {
             logger.error("Error while running participant export job", e);
         } finally {
             IOUtils.closeQuietly(csvFileWriter);
+            IOUtils.closeQuietly(specimenExport.getCsvFileWriter());
         }
     }
     
@@ -111,11 +114,11 @@ public class ParticipantExport implements ScheduledTask {
     ///////////////////
 
     @PlusTransactional
-    private int exportParticipants(CsvFileWriter csvFileWriter, int startAt, int maxRecs) throws IOException {
+    private int exportParticipants(CsvFileWriter csvFileWriter, SpecimenExport specimenExport, int startAt, int maxRecs) throws IOException {
         CprListCriteria cprListCriteria = new CprListCriteria().startAt(startAt).maxResults(maxRecs);
 	List<CollectionProtocolRegistration> cprs = daoFactory.getCprDao().getCprs(cprListCriteria);
         
-	cprs.forEach(cpr -> processCpr(cpr, csvFileWriter));
+	cprs.forEach(cpr -> processCpr(cpr, csvFileWriter, specimenExport));
         
 	csvFileWriter.flush();
         return cprs.size();
@@ -127,14 +130,14 @@ public class ParticipantExport implements ScheduledTask {
     //
     ///////////////////
 
-    private void processCpr(CollectionProtocolRegistration cpr, CsvFileWriter csvFileWriter) {
+    private void processCpr(CollectionProtocolRegistration cpr, CsvFileWriter csvFileWriter, SpecimenExport specimenExport) {
     	List<String> props = new ArrayList<>();
     	
     	props.add(cpr.getParticipant().getEmpi());
     	props.add((String) (getCustomFieldValueMap(cpr.getParticipant()).getOrDefault("Darwin ID", "")));
     	
     	if (!cpr.getVisits().isEmpty()) {
-            cpr.getVisits().forEach(visit -> processVisit(visit, props, csvFileWriter));
+            cpr.getVisits().forEach(visit -> processVisit(visit, props, csvFileWriter, specimenExport));
     	} else {
             csvFileWriter.writeNext(props.toArray(new String[props.size()]));
     	}
@@ -146,13 +149,32 @@ public class ParticipantExport implements ScheduledTask {
     //
     ///////////////////
 
-    private void processVisit(Visit visit, List<String> visitProps, CsvFileWriter csvFileWriter) {
+    private void processVisit(Visit visit, List<String> visitProps, CsvFileWriter csvFileWriter, SpecimenExport specimenExport) {
     	ArrayList<String> props = populateVisit(visit, visitProps);
 	
-    	if (!visit.getOrderedTopLevelSpecimens().isEmpty()) {
-    	    visit.getOrderedTopLevelSpecimens().forEach(specimen -> processSpecimen(specimen, props, csvFileWriter));
+    	if (!visit.getTopLevelSpecimens().isEmpty()) {
+    	    Set<Specimen> specimenList = visit.getTopLevelSpecimens();
+    	    handleSpecimens(specimenList, props, csvFileWriter, specimenExport);
     	} else {
        	    csvFileWriter.writeNext(props.toArray(new String[props.size()]));
+    	}
+    }
+    
+    private void handleSpecimens(Set<Specimen> specimenList, List<String> specimenProps, CsvFileWriter csvFileWriter, SpecimenExport specimenExport) {
+    	
+    	for (Specimen specimen : specimenList) {
+	    	if (specimen.isPrimary()) {
+	    		ArrayList<String> props = new ArrayList<>(specimenProps);
+	    		processSpecimen(specimen, props, csvFileWriter);
+	    	} else if (specimen.isAliquot()) {
+	    		specimenExport.exportSpecimens(specimen);
+	    	}
+	    	
+	    	if (specimen.getChildCollection().isEmpty()) {
+	    		continue;
+	    	} else {
+	    		handleSpecimens(specimen.getChildCollection(), specimenProps, csvFileWriter, specimenExport);
+	    	}
     	}
     }
     
