@@ -47,8 +47,8 @@ public class SpecimenExport {
     }
     
     private CsvFileWriter getCSVWriter() {
-        String timeStamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
-        File file = new File(ConfigUtil.getInstance().getDataDir(), "Details_" + timeStamp + ".csv");
+    	String exportFolder = new SimpleDateFormat("dd-MM-yyyy").format(new Date());
+        File file = new File(ConfigUtil.getInstance().getDataDir() + File.separatorChar + exportFolder, "Details" + ".csv");
         return CsvFileWriter.createCsvFileWriter(file);
     }
     

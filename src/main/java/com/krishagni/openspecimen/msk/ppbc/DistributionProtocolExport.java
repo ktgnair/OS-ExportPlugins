@@ -56,7 +56,7 @@ public class DistributionProtocolExport implements ScheduledTask {
 			doFileWriter.writeNext(getDoHeader());
 			
 			boolean endOfDPs = false;
-			int startAt = 0, maxRecs = 100;
+			int startAt = 0, maxRecs = 10;
 		    
 			while (!endOfDPs) {
       			int exportedRecsCount = exportDpData(dpFileWriter, dPRFileWriter, doFileWriter, startAt, maxRecs);
@@ -142,8 +142,8 @@ public class DistributionProtocolExport implements ScheduledTask {
 	}
 
 	private CsvFileWriter getDpCSVWriter() {
-		String timestamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
-		File outputFile = new File(ConfigUtil.getInstance().getDataDir(), "DistributionProtocol_" + timestamp + ".csv");
+		String exportFolder = new SimpleDateFormat("dd-MM-yyyy").format(new Date());
+		File outputFile = new File(ConfigUtil.getInstance().getDataDir() + File.separatorChar + exportFolder, "Specimen_Request" + ".csv");
 		return CsvFileWriter.createCsvFileWriter(outputFile);
 	}
 
@@ -303,8 +303,8 @@ public class DistributionProtocolExport implements ScheduledTask {
 	}
 
 	private CsvFileWriter getDpRCSVWriter() {
-		String timestamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
-		File outputFile = new File(ConfigUtil.getInstance().getDataDir(), "DpRequirement_" + timestamp + ".csv");
+		String exportFolder = new SimpleDateFormat("dd-MM-yyyy").format(new Date());
+		File outputFile = new File(ConfigUtil.getInstance().getDataDir() + File.separatorChar + exportFolder, "Specimen_Request_Details" + ".csv");
 		return CsvFileWriter.createCsvFileWriter(outputFile);
 	}
 
@@ -335,8 +335,8 @@ public class DistributionProtocolExport implements ScheduledTask {
 	///////////////////////
 	
 	private CsvFileWriter getDoCSVWriter() {
-		String timestamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
-		File outputFile = new File(ConfigUtil.getInstance().getDataDir(), "DistributionOrders_" + timestamp + ".csv");
+		String exportFolder = new SimpleDateFormat("dd-MM-yyyy").format(new Date());
+		File outputFile = new File(ConfigUtil.getInstance().getDataDir() + File.separatorChar + exportFolder, "Distribution" + ".csv");
 		return CsvFileWriter.createCsvFileWriter(outputFile);
 	}
 	

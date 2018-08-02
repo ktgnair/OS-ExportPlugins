@@ -1,4 +1,4 @@
-CREATE TABLE Request (
+CREATE TABLE Specimen_Request (
 TBR_REQUEST_TITLE varchar(255),
 TBR_SOURCE_REQUEST varchar(255),
 TBR_INSTITUTE_DESC varchar(255),
@@ -29,7 +29,7 @@ TBR_STS_DESC varchar(255),
 TBR_SPECIAL_HANDLING_DESC varchar(255)
 );
 
-CREATE TABLE Distribution_Requirement(
+CREATE TABLE Specimen_Request_Details(
 TBRD_SPECIMEN_TYPE_CD varchar(255),
 TBRD_SITE_DESC varchar(255),
 TBRD_SUB_SITE_DESC varchar(255),
@@ -47,7 +47,7 @@ TBRD_UNIT_DESC varchar(255),
 TBRD_NOTES text
 );
 
-CREATE TABLE Distribution_Order (
+CREATE TABLE Distribution (
 TBDS_SPECIMEN_REQUEST_ID varchar(255),
 TBDS_DISTRIBUTION_DT timestamp NULL DEFAULT NULL,
 TBDS_SOURCE_REQUEST varchar(255),
@@ -57,7 +57,7 @@ TBDS_BILLING_DT timestamp NULL DEFAULT NULL
 );
 
 
-CREATE TABLE accession(
+CREATE TABLE Accession(
 TBA_CRDB_MRN varchar(50),
 TBA_PT_DEIDENTIFICATION_ID bigint(20),
 TBD_BANK_NUM varchar(255),
@@ -99,7 +99,7 @@ TBA_HISTOLOGY_SUB3_DESC varchar(255),
 TBA_HARVEST_PA_NAME varchar(255)
 );
 
-CREATE TABLE detail(
+CREATE TABLE Details(
 PARENT_SPECIMEN_LABEL varchar(255),
 ALIQUOT_LABEL varchar(255),
 TBD_CATEGORY_DESC varchar(255),

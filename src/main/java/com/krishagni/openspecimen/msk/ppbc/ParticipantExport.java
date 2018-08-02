@@ -81,8 +81,8 @@ public class ParticipantExport implements ScheduledTask {
     }
     
     private CsvFileWriter getCSVWriter() {
-        String timeStamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
-        File file = new File(ConfigUtil.getInstance().getDataDir(), "Accession_" + timeStamp + ".csv");
+    	String exportFolder = new SimpleDateFormat("dd-MM-yyyy").format(new Date());
+        File file = new File(ConfigUtil.getInstance().getDataDir() + File.separatorChar + exportFolder, "Accession" + ".csv");
         return CsvFileWriter.createCsvFileWriter(file);
     }
     
