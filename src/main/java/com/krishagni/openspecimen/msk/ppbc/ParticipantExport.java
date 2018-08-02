@@ -50,12 +50,17 @@ public class ParticipantExport implements ScheduledTask {
             csvFileWriter.writeNext(getHeader());
 
             boolean endOfParticipants = false;
-            int startAt = 0, maxRecs = 100;
+            Long lastId = 0L;
+            int maxRecs = 100;
 
             while (!endOfParticipants) {
-                int exportedRecsCount = exportParticipants(csvFileWriter, specimenExport, startAt, maxRecs);
-                startAt += exportedRecsCount;
-                endOfParticipants = (exportedRecsCount < maxRecs);
+                List<CollectionProtocolRegistration> cprs = exportParticipants(csvFileWriter, specimenExport, lastId, maxRecs);
+                
+                if (!cprs.isEmpty()) {
+                	lastId = cprs.get(cprs.size()-1).getId();
+                }
+
+                endOfParticipants = (cprs.size() < maxRecs);
             }        
         } catch (Exception e) {
             logger.error("Error while running participant export job", e);
@@ -114,14 +119,14 @@ public class ParticipantExport implements ScheduledTask {
     ///////////////////
 
     @PlusTransactional
-    private int exportParticipants(CsvFileWriter csvFileWriter, SpecimenExport specimenExport, int startAt, int maxRecs) throws IOException {
-        CprListCriteria cprListCriteria = new CprListCriteria().startAt(startAt).maxResults(maxRecs)	;
-        List<CollectionProtocolRegistration> cprs = daoFactory.getCprDao().getCprs(cprListCriteria);
+    private List<CollectionProtocolRegistration> exportParticipants(CsvFileWriter csvFileWriter, SpecimenExport specimenExport, Long lastId, int maxRecs) throws IOException {
+    	CprListCriteria cprListCriteria = new CprListCriteria().lastId(lastId).maxResults(maxRecs);
+    	List<CollectionProtocolRegistration> cprs = daoFactory.getCprDao().getCprs(cprListCriteria);
         
         cprs.forEach(cpr -> processCpr(cpr, csvFileWriter, specimenExport));
         
         csvFileWriter.flush();
-        return cprs.size();
+        return cprs;
     }
     
     ///////////////////
