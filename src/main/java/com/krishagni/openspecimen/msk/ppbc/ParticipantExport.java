@@ -77,7 +77,7 @@ public class ParticipantExport implements ScheduledTask {
     
     private CsvFileWriter getCSVWriter() {
         String timeStamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
-        File file = new File(ConfigUtil.getInstance().getDataDir(), "participants_" + timeStamp + ".csv");
+        File file = new File(ConfigUtil.getInstance().getDataDir(), "Accession_" + timeStamp + ".csv");
         return CsvFileWriter.createCsvFileWriter(file);
     }
     
@@ -115,12 +115,12 @@ public class ParticipantExport implements ScheduledTask {
 
     @PlusTransactional
     private int exportParticipants(CsvFileWriter csvFileWriter, SpecimenExport specimenExport, int startAt, int maxRecs) throws IOException {
-        CprListCriteria cprListCriteria = new CprListCriteria().startAt(startAt).maxResults(maxRecs);
-	List<CollectionProtocolRegistration> cprs = daoFactory.getCprDao().getCprs(cprListCriteria);
+        CprListCriteria cprListCriteria = new CprListCriteria().startAt(startAt).maxResults(maxRecs)	;
+        List<CollectionProtocolRegistration> cprs = daoFactory.getCprDao().getCprs(cprListCriteria);
         
-	cprs.forEach(cpr -> processCpr(cpr, csvFileWriter, specimenExport));
+        cprs.forEach(cpr -> processCpr(cpr, csvFileWriter, specimenExport));
         
-	csvFileWriter.flush();
+        csvFileWriter.flush();
         return cprs.size();
     }
     

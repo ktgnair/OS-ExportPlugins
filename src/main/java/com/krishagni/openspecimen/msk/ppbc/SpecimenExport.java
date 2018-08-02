@@ -21,7 +21,7 @@ import com.krishagni.catissueplus.core.common.util.Utility;
 
 @Configurable
 public class SpecimenExport {
-   private  CsvFileWriter csvFileWriter;
+    private  CsvFileWriter csvFileWriter;
    
     public SpecimenExport() {
     	this.csvFileWriter = getCSVWriter();
@@ -32,7 +32,7 @@ public class SpecimenExport {
     	return this.csvFileWriter;
     }
     
-   public void exportSpecimens(Specimen specimen) {
+    public void exportSpecimens(Specimen specimen) {
 	   csvFileWriter.writeNext(getRow(specimen));
     }
     
@@ -48,11 +48,11 @@ public class SpecimenExport {
     
     private CsvFileWriter getCSVWriter() {
         String timeStamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
-        File file = new File(ConfigUtil.getInstance().getDataDir(), "specimens_" + timeStamp + ".csv");
+        File file = new File(ConfigUtil.getInstance().getDataDir(), "Details_" + timeStamp + ".csv");
         return CsvFileWriter.createCsvFileWriter(file);
     }
     
-   public String[] getRow(Specimen specimen) {
+    public String[] getRow(Specimen specimen) {
     	List<String> row = new ArrayList<>();
     	
     	row.add(getPrimarySpecimen(specimen).getLabel());
@@ -84,9 +84,10 @@ public class SpecimenExport {
     }
     
     private String getSpecimenQuantity(Specimen specimen, String columnName) {
-    	if (specimen.getSpecimenClass().equals("Tissue") && columnName == "TBD_WEIGHT") {
+    	
+    	if (specimen.getSpecimenClass().equals("Tissue") && columnName == "TBD_WEIGHT" && specimen.getAvailableQuantity() != null) {
     		return specimen.getAvailableQuantity().toString();
-    	} else if (!specimen.getSpecimenClass().equals("Tissue") && columnName == "TBD_VOL") {
+    	} else if (!specimen.getSpecimenClass().equals("Tissue") && columnName == "TBD_VOL" && specimen.getAvailableQuantity() != null) {
     		return specimen.getAvailableQuantity().toString();
     	} else {
     		return null;
